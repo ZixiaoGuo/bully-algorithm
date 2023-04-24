@@ -22,7 +22,7 @@ class Message {
     }
 }
 
-public class BullyAlgorithm {
+public class BullyAlgorithmIter {
     
     public static AtomicInteger messageCount;
 
@@ -47,38 +47,41 @@ public class BullyAlgorithm {
 
     public static int startElection(List<Process> processes, int initiator) {
         System.out.println("Election started by Process " + initiator);
-
-        int maxId = -1;
-        boolean receivedHigherId = false;
-
-        for (Process process : processes) {
-            if (process.id > initiator && process.active) {
-                Message electionMessage = new Message(initiator, "ELECTION");
-                Message responseMessage = sendMessage(process, electionMessage);
-
-                if (responseMessage != null && "OK".equals(responseMessage.type)) {
-                    receivedHigherId = true;
-                    int result = startElection(processes, process.id);
-                    if (result > maxId) {
-                        maxId = result;
+        int currentInitiator = initiator;
+    
+        while (true) {
+            int maxId = -1;
+            boolean receivedHigherId = false;
+    
+            for (Process process : processes) {
+                if (process.id > currentInitiator && process.active) {
+                    Message electionMessage = new Message(currentInitiator, "ELECTION");
+                    Message responseMessage = sendMessage(process, electionMessage);
+    
+                    if (responseMessage != null && "OK".equals(responseMessage.type)) {
+                        receivedHigherId = true;
+                        if (responseMessage.from > maxId) {
+                            maxId = responseMessage.from;
+                        }
                     }
                 }
             }
-        }
-
-        if (!receivedHigherId) {
-            System.out.println("Process " + initiator + " becomes the new coordinator.");
-            for (Process process : processes) {
-                if (process.id < initiator && process.active) {
-                    Message coordinatorMessage = new Message(initiator, "COORDINATOR");
-                    sendMessage(process, coordinatorMessage);
+    
+            if (!receivedHigherId) {
+                System.out.println("Process " + currentInitiator + " becomes the new coordinator.");
+                for (Process process : processes) {
+                    if (process.id < currentInitiator && process.active) {
+                        Message coordinatorMessage = new Message(currentInitiator, "COORDINATOR");
+                        sendMessage(process, coordinatorMessage);
+                    }
                 }
+                return currentInitiator;
+            } else {
+                currentInitiator = maxId;
             }
-            return initiator;
         }
-
-        return maxId;
     }
+    
 
     public static Message sendMessage(Process receiver, Message message) {
         messageCount.incrementAndGet();

@@ -1,4 +1,5 @@
 package com.example;
+
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -22,15 +23,17 @@ class Message {
     }
 }
 
-public class BullyAlgorithm {
-    
+public class BinaryBully {
+
     public static AtomicInteger messageCount;
 
     public static void main(String[] args) {
         List<Process> processes = new ArrayList<>();
         messageCount = new AtomicInteger(0);
-        int numProcesses = 15;
-        // Create 5 processes and add them to the list
+
+        int numProcesses = 150; // Set the desired number of processes here
+
+        // Create processes and add them to the list
         for (int i = 0; i < numProcesses; i++) {
             processes.add(new Process(i, true));
         }
@@ -51,18 +54,29 @@ public class BullyAlgorithm {
         int maxId = -1;
         boolean receivedHigherId = false;
 
-        for (Process process : processes) {
-            if (process.id > initiator && process.active) {
+        int left = initiator + 1;
+        int right = processes.size() - 1;
+
+        while (left <= right) {
+            int mid = left + (right - left) / 2;
+            Process midProcess = processes.get(mid);
+
+            if (midProcess.active) {
                 Message electionMessage = new Message(initiator, "ELECTION");
-                Message responseMessage = sendMessage(process, electionMessage);
+                Message responseMessage = sendMessage(midProcess, electionMessage);
 
                 if (responseMessage != null && "OK".equals(responseMessage.type)) {
                     receivedHigherId = true;
-                    int result = startElection(processes, process.id);
+                    int result = startElection(processes, midProcess.id);
                     if (result > maxId) {
                         maxId = result;
                     }
+                    left = mid + 1;
+                } else {
+                    right = mid - 1;
                 }
+            } else {
+                right = mid - 1;
             }
         }
 
