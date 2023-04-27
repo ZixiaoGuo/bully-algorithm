@@ -22,28 +22,17 @@ class Message {
     }
 }
 
-public class BullyAlgorithm {
-    
+public class GroupBully {
+
     public static AtomicInteger messageCount;
 
     public static void main(String[] args) {
-        List<Process> processes = new ArrayList<>();
-        messageCount = new AtomicInteger(0);
-        int numProcesses = 20; // Set the number of processes here
-    
-        // Create processes and add them to the list
-        for (int i = 0; i < numProcesses; i++) {
-            processes.add(new Process(i, true));
-        }
-    
-        // Simulate a coordinator failure
-        processes.get(numProcesses - 1).active = false;
-        System.out.println("Coordinator (Process " + (numProcesses - 1) + ") has failed.");
-    
-        int numGroups = 4; // You can set the number of groups here
+        // ... (Create processes and simulate coordinator failure)
+
+        int numGroups = 5; // You can set the number of groups here
         int groupSize = (int) Math.ceil((double) processes.size() / numGroups);
         List<Integer> groupLeaders = new ArrayList<>();
-    
+
         // Elect group leaders
         for (int i = 0; i < numGroups; i++) {
             int groupStart = i * groupSize;
@@ -53,13 +42,11 @@ public class BullyAlgorithm {
                 groupLeaders.add(groupLeader);
             }
         }
-    
+
         // Elect overall leader from group leaders
         int newCoordinator = -1;
         if (!groupLeaders.isEmpty()) {
-            int overallGroupStart = processes.indexOf(processes.stream().filter(p -> p.id == groupLeaders.get(0)).findFirst().orElse(null));
-            int overallGroupEnd = processes.indexOf(processes.stream().filter(p -> p.id == groupLeaders.get(groupLeaders.size() - 1)).findFirst().orElse(null));
-            newCoordinator = startElection(processes, overallGroupStart, overallGroupEnd);
+            newCoordinator = startElection(processes, groupLeaders.get(0), groupLeaders.get(groupLeaders.size() - 1));
         }
         System.out.println("New coordinator is: Process " + newCoordinator);
         System.out.println("Total messages sent: " + messageCount.get());
@@ -79,8 +66,9 @@ public class BullyAlgorithm {
 
                 if (responseMessage != null && "OK".equals(responseMessage.type)) {
                     receivedHigherId = true;
-                    if (responseMessage.from > maxId) {
-                        maxId = responseMessage.from;
+                    int result = startElection(processes, i, end);
+                    if (result > maxId) {
+                        maxId = result;
                     }
                 }
             }
@@ -100,7 +88,6 @@ public class BullyAlgorithm {
 
         return maxId;
     }
-
 
     public static Message sendMessage(Process receiver, Message message) {
         messageCount.incrementAndGet();
