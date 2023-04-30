@@ -31,7 +31,7 @@ public class ModifiedBully {
         List<Process> processes = new ArrayList<>();
         messageCount = new AtomicInteger(0);
 
-        int numProcesses = 100; // Set the desired number of processes here
+        int numProcesses = 15; // Set the desired number of processes here
 
         // Create processes and add them to the list
         for (int i = 0; i < numProcesses; i++) {

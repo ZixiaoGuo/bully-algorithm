@@ -1,4 +1,5 @@
 package com.example;
+
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -27,10 +28,21 @@ public class GroupBully {
     public static AtomicInteger messageCount;
 
     public static void main(String[] args) {
-        // ... (Create processes and simulate coordinator failure)
+        List<Process> processes = new ArrayList<>();
+        messageCount = new AtomicInteger(0);
+        int numProcesses = 18; // Set the number of processes here
 
-        int numGroups = 5; // You can set the number of groups here
-        int groupSize = (int) Math.ceil((double) processes.size() / numGroups);
+        // Create processes and add them to the list
+        for (int i = 0; i < numProcesses; i++) {
+            processes.add(new Process(i, true));
+        }
+
+        // Simulate a coordinator failure
+        processes.get(numProcesses - 1).active = false;
+        System.out.println("Coordinator (Process " + (numProcesses - 1) + ") has failed.");
+
+        int groupSize = 15; // You can set the group size here
+        int numGroups = (int) Math.ceil((double) numProcesses / groupSize);
         List<Integer> groupLeaders = new ArrayList<>();
 
         // Elect group leaders
@@ -44,12 +56,56 @@ public class GroupBully {
         }
 
         // Elect overall leader from group leaders
+        int overallLeader = electOverallLeader(processes, groupLeaders);
+        System.out.println("Overall leader is: Process " + overallLeader);
+
+        int initialElectionMessageCount = messageCount.get();
+
+        // Simulate the failure of the overall leader
+        processes.get(overallLeader).active = false;
+        System.out.println("Overall leader (Process " + overallLeader + ") has failed.");
+
+        // Identify the group that the failed overall leader belonged to
+        int failedLeaderGroupIndex = groupLeaders.indexOf(overallLeader);
+
+        // Remove the failed leader from the groupLeaders list
+        groupLeaders.remove(failedLeaderGroupIndex);
+
+        // Start the re-election process among the remaining group leaders to elect a
+        // new overall leader
+        int newOverallLeader = electOverallLeader(processes, groupLeaders);
+
+        System.out.println("Initial election total messages sent: " + initialElectionMessageCount);
+        // Display the new overall leader and the message count for the re-election
+        System.out.println("New overall leader is: Process " + newOverallLeader);
+        System.out.println("Re-election total messages sent: " + (messageCount.get() - initialElectionMessageCount));
+    }
+
+    public static List<Integer> electGroupLeaders(List<Process> processes, int numGroups, int groupSize) {
+        List<Integer> groupLeaders = new ArrayList<>();
+        // Elect group leaders
+        for (int i = 0; i < numGroups; i++) {
+            int groupStart = i * groupSize;
+            int groupEnd = Math.min((i + 1) * groupSize - 1, processes.size() - 1);
+            int groupLeader = startElection(processes, groupStart, groupEnd);
+            if (groupLeader != -1) {
+                groupLeaders.add(groupLeader);
+            }
+        }
+        return groupLeaders;
+    }
+
+    public static int electOverallLeader(List<Process> processes, List<Integer> groupLeaders) {
         int newCoordinator = -1;
         if (!groupLeaders.isEmpty()) {
-            newCoordinator = startElection(processes, groupLeaders.get(0), groupLeaders.get(groupLeaders.size() - 1));
+            int overallGroupStart = processes
+                    .indexOf(processes.stream().filter(p -> p.id == groupLeaders.get(0)).findFirst().orElse(null));
+            int overallGroupEnd = processes.indexOf(processes.stream()
+                    .filter(p -> p.id == groupLeaders.get(groupLeaders.size() - 1)).findFirst().orElse(null));
+            newCoordinator = startElection(processes, overallGroupStart, overallGroupEnd);
         }
         System.out.println("New coordinator is: Process " + newCoordinator);
-        System.out.println("Total messages sent: " + messageCount.get());
+        return newCoordinator;
     }
 
     public static int startElection(List<Process> processes, int start, int end) {
@@ -66,9 +122,8 @@ public class GroupBully {
 
                 if (responseMessage != null && "OK".equals(responseMessage.type)) {
                     receivedHigherId = true;
-                    int result = startElection(processes, i, end);
-                    if (result > maxId) {
-                        maxId = result;
+                    if (responseMessage.from > maxId) {
+                        maxId = responseMessage.from;
                     }
                 }
             }
@@ -84,9 +139,18 @@ public class GroupBully {
                 }
             }
             return processes.get(start).id;
+        } else {
+            System.out.println(
+                    "Process " + processes.get(start).id + " appoints Process " + maxId + " as the new coordinator.");
+            for (int i = start - 1; i >= 0; i--) {
+                Process process = processes.get(i);
+                if (process.active) {
+                    Message coordinatorMessage = new Message(maxId, "COORDINATOR");
+                    sendMessage(process, coordinatorMessage);
+                }
+            }
+            return maxId;
         }
-
-        return maxId;
     }
 
     public static Message sendMessage(Process receiver, Message message) {

@@ -1,35 +1,21 @@
 package com.example;
+
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-class Process {
-    int id;
-    boolean active;
-
-    public Process(int id, boolean active) {
-        this.id = id;
-        this.active = active;
-    }
-}
-
-class Message {
-    int from;
-    String type;
-
-    public Message(int from, String type) {
-        this.from = from;
-        this.type = type;
-    }
-}
-
-public class BullyAlgorithm {
-    
+public class BullyThreads {
     public static AtomicInteger messageCount;
+    public static ExecutorService executor;
 
     public static void main(String[] args) {
         List<Process> processes = new ArrayList<>();
         messageCount = new AtomicInteger(0);
         int numProcesses = 5;
+        
+        // Create an ExecutorService to handle message sending concurrently
+        executor = Executors.newFixedThreadPool(numProcesses);
+        
         // Create processes and add them to the list
         for (int i = 0; i < numProcesses; i++) {
             processes.add(new Process(i, true));
@@ -43,6 +29,9 @@ public class BullyAlgorithm {
         int newCoordinator = startElection(processes, 1);
         System.out.println("New coordinator is: Process " + newCoordinator);
         System.out.println("Total messages sent: " + messageCount.get());
+        
+        // Shutdown the executor service
+        executor.shutdown();
     }
 
     public static int startElection(List<Process> processes, int initiator) {
@@ -51,18 +40,27 @@ public class BullyAlgorithm {
         int maxId = -1;
         boolean receivedHigherId = false;
 
+        List<Future<Message>> futures = new ArrayList<>();
+        
         for (Process process : processes) {
             if (process.id > initiator && process.active) {
                 Message electionMessage = new Message(initiator, "ELECTION");
-                Message responseMessage = sendMessage(process, electionMessage);
+                futures.add(executor.submit(() -> sendMessage(process, electionMessage)));
+            }
+        }
 
+        for (Future<Message> future : futures) {
+            try {
+                Message responseMessage = future.get();
                 if (responseMessage != null && "OK".equals(responseMessage.type)) {
                     receivedHigherId = true;
-                    int result = startElection(processes, process.id);
+                    int result = startElection(processes, responseMessage.from);
                     if (result > maxId) {
                         maxId = result;
                     }
                 }
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
             }
         }
 
@@ -71,7 +69,7 @@ public class BullyAlgorithm {
             for (Process process : processes) {
                 if (process.id < initiator && process.active) {
                     Message coordinatorMessage = new Message(initiator, "COORDINATOR");
-                    sendMessage(process, coordinatorMessage);
+                    executor.submit(() -> sendMessage(process, coordinatorMessage));
                 }
             }
             return initiator;
@@ -96,3 +94,4 @@ public class BullyAlgorithm {
         return null;
     }
 }
+
