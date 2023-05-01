@@ -23,14 +23,14 @@ class Message {
     }
 }
 
-public class GroupBully {
+public class DivideAndConquerBully {
 
     public static AtomicInteger messageCount;
 
     public static void main(String[] args) {
         List<Process> processes = new ArrayList<>();
         messageCount = new AtomicInteger(0);
-        int numProcesses = 18; // Set the number of processes here
+        int numProcesses = 150; // Set the number of processes here
 
         // Create processes and add them to the list
         for (int i = 0; i < numProcesses; i++) {

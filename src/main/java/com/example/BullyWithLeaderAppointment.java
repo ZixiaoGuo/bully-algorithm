@@ -23,7 +23,7 @@ class Message {
     }
 }
 
-public class ModifiedBully {
+public class BullyWithLeaderAppointment {
 
     public static AtomicInteger messageCount;
 
